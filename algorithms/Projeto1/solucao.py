@@ -104,7 +104,7 @@ class CartaTrafegabilidade(QgsProcessingAlgorithm):
             QgsProcessingParameterFeatureSource(
                 self.VIA,
                 self.tr('Camada Via de deslocamento'),
-                [QgsProcessing. TypeVectorLine]
+                [QgsProcessing.TypeVectorLine]
             )
         )
         

@@ -33,13 +33,14 @@ __revision__ = '$Format:%H$'
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (QgsProcessing,
                        QgsFeatureSink,
+                       QgsProcessingException,
                        QgsProcessingAlgorithm,
                        QgsProcessingParameterFeatureSource,
-                       QgsProcessingParameterFeatureSink)
-
-
-class Projeto1Solucao(QgsProcessingAlgorithm):
-  """
+                       QgsProcessingParameterFeatureSink,
+                       QgsProcessingParameterDistance,
+                       QgsProcessingParameterRasterLayer)
+from qgis import processing
+"""
 ***************************************************************************
 *                                                                         *
 *   This program is free software; you can redistribute it and/or modify  *
@@ -50,18 +51,7 @@ class Projeto1Solucao(QgsProcessingAlgorithm):
 ***************************************************************************
 """
 
-from qgis.PyQt.QtCore import QCoreApplication
-from qgis.core import (QgsProcessing,
-                       QgsFeatureSink,
-                       QgsProcessingException,
-                       QgsProcessingAlgorithm,
-                       QgsProcessingParameterFeatureSource,
-                       QgsProcessingParameterFeatureSink,
-                       QgsProcessingParameterDistance)
-from qgis import processing
-
-
-class CartaTrafegabilidade(QgsProcessingAlgorithm):
+class Projeto1Solucao(QgsProcessingAlgorithm):
 
     VIA = 'VIA' #Camada da via
     RVIA ='RVIA' # raio do buffer da via 
@@ -74,17 +64,20 @@ class CartaTrafegabilidade(QgsProcessingAlgorithm):
     ASD ='ASD'  # Área sem dados 
     MDT = 'MDT' # MDT
     TP = 'TP'   # Tamanho do pixel 
-    OUTPUT = 'OUTPUT'
+    OUTPUT_VIA= 'OUTPUT_VIA'
+    OUTPUT_DRENAGEM= 'OUTPUT_DRENAGEM'
+    OUTPUT_MATA_CILIAR= 'OUTPUT_MATA_CILIAR'
+
 
     def tr(self, string):
     
         return QCoreApplication.translate('Processing', string)
 
     def createInstance(self):
-        return CartaTrafegabilidade()
+        return Projeto1Solucao()
 
     def name(self):
-        return 'cartatrafegabilidade'
+        return 'projeto1solucao'
 
     def displayName(self):
         return self.tr('Projeto 1')
@@ -93,7 +86,7 @@ class CartaTrafegabilidade(QgsProcessingAlgorithm):
         return self.tr('Projeto')
 
     def groupId(self):
-        return 'examplescripts'
+        return 'projeto1'
 
     def shortHelpString(self):
         return self.tr("Projeto para identificação de trafegabilidade")
@@ -198,7 +191,7 @@ class CartaTrafegabilidade(QgsProcessingAlgorithm):
 )           
         
         self.addParameter(
-            QgsProcessingParameterFeatureSource(
+            QgsProcessingParameterRasterLayer(
                 self.MDT,
                 self.tr("Camada MDT"),
                 [QgsProcessing.TypeRaster]
@@ -211,8 +204,22 @@ class CartaTrafegabilidade(QgsProcessingAlgorithm):
         # algorithm is run in QGIS).
         self.addParameter(
             QgsProcessingParameterFeatureSink(
-                self.OUTPUT,
-                self.tr('Output layer')
+                self.OUTPUT_VIA,
+                self.tr('Output Via')
+            )
+        )
+
+        self.addParameter(
+            QgsProcessingParameterFeatureSink(
+                self.OUTPUT_DRENAGEM,
+                self.tr('Output Trecho de Drenagem')
+            )
+        )
+
+        self.addParameter(
+            QgsProcessingParameterFeatureSink(
+                self.OUTPUT_MATA_CILIAR,
+                self.tr('Output Mata Ciliar')
             )
         )
 
@@ -247,6 +254,12 @@ class CartaTrafegabilidade(QgsProcessingAlgorithm):
             context
         )
 
+        ModeloDigitaldoTerreno = self.parameterAsSource(
+            parameters,
+            self.MDT,
+            context
+        )        
+
 
 
         raioVia = self.parameterAsDouble(
@@ -266,20 +279,40 @@ class CartaTrafegabilidade(QgsProcessingAlgorithm):
             self.RMC,
             context)
         
+
+        
         # If source was not found, throw an exception to indicate that the algorithm
         # encountered a fatal error. The exception text can be any string, but in this
         # case we use the pre-built invalidSourceError method to return a standard
         # helper text for when a source cannot be evaluated
         if vias is None:
-            raise QgsProcessingException(self.invalidSourceError(parameters, self.INPUT))
+            raise QgsProcessingException(self.invalidSourceError(parameters, self.VIA))
 
-        (sink, dest_id) = self.parameterAsSink(
+        (sink_vias, dest_id_vias) = self.parameterAsSink(
             parameters,
-            self.OUTPUT,
+            self.OUTPUT_VIA,
             context,
             vias.fields(),
             vias.wkbType(),
             vias.sourceCrs()
+        )
+
+        (sink_drenagem, dest_id_drenagem) = self.parameterAsSink(
+            parameters,
+            self.OUTPUT_DRENAGEM,
+            context,
+            trechoDrenagem.fields(),
+            trechoDrenagem.wkbType(),
+            trechoDrenagem.sourceCrs()
+        )
+
+        (sink_vegetacao, dest_id_mataciliar) = self.parameterAsSink(
+            parameters,
+            self.OUTPUT_MATA_CILIAR,
+            context,
+            vegetacao.fields(),
+            vegetacao.wkbType(),
+            vegetacao.sourceCrs()
         )
 
         # Send some information to the user
@@ -289,9 +322,10 @@ class CartaTrafegabilidade(QgsProcessingAlgorithm):
         # encountered a fatal error. The exception text can be any string, but in this
         # case we use the pre-built invalidSinkError method to return a standard
         # helper text for when a sink cannot be evaluated
-        if sink is None:
-            raise QgsProcessingException(self.invalidSinkError(parameters, self.OUTPUT))
-
+        # if sink_drenagem or sink_vegetacao or sink_vias is None:
+        if sink_vias is None:
+            raise QgsProcessingException(self.invalidSinkError(parameters, self.OUTPUT_VIA))
+        
         # Compute the number of steps to display within the progress bar and
         # get features from source
         total = 100.0 / vias.featureCount() if vias.featureCount() else 0
@@ -303,14 +337,14 @@ class CartaTrafegabilidade(QgsProcessingAlgorithm):
                 break
 
             # Add a feature in the sink
-            sink.addFeature(feature, QgsFeatureSink.FastInsert)
+            sink_vias.addFeature(feature, QgsFeatureSink.FastInsert)
 
             # Update the progress bar
             feedback.setProgress(int(current * total))
 
         #Obter via de deslocamento 
         viaDeslocamento = processing.run("native:buffer", 
-            {'INPUT':vias,
+            {'INPUT':dest_id_vias,
              'DISTANCE':raioVia,
              'SEGMENTS':5,
              'END_CAP_STYLE':0,
@@ -318,12 +352,12 @@ class CartaTrafegabilidade(QgsProcessingAlgorithm):
              'MITER_LIMIT':2,
              'DISSOLVE':False,
              'SEPARATE_DISJOINT':False,
-             'OUTPUT':'TEMPORARY_OUTPUT'})
-
-        #Obter o trecho de drenagem 
+             'OUTPUT': 'memory:'},
+            context=context, feedback=feedback)['OUTPUT']
+        # #Obter o trecho de drenagem 
         
         trechoDrenagemFinal = processing.run("native:buffer", 
-            {'INPUT':trechoDrenagem,
+            {'INPUT':dest_id_drenagem,
              'DISTANCE':raioTrechoDrenagem,
              'SEGMENTS':5,
              'END_CAP_STYLE':0,
@@ -331,11 +365,12 @@ class CartaTrafegabilidade(QgsProcessingAlgorithm):
              'MITER_LIMIT':2,
              'DISSOLVE':False,
              'SEPARATE_DISJOINT':False,
-             'OUTPUT':'TEMPORARY_OUTPUT'})
+             'OUTPUT':'memory:'},
+             context=context, feedback=feedback)['OUTPUT']
         
         # Obter mata ciliar 
         mataCiliarFinal = processing.run("native:buffer", 
-            {'INPUT':vegetacao,
+            {'INPUT':dest_id_mataciliar,
              'DISTANCE':raioMataCiliar,
              'SEGMENTS':5,
              'END_CAP_STYLE':0,
@@ -343,12 +378,17 @@ class CartaTrafegabilidade(QgsProcessingAlgorithm):
              'MITER_LIMIT':2,
              'DISSOLVE':False,
              'SEPARATE_DISJOINT':False,
-             'OUTPUT':'TEMPORARY_OUTPUT'})
+             'OUTPUT':'memory:'},
+              context=context, feedback=feedback)['OUTPUT']
         
         # Extrair Vias de deslocamento federal
-        viaFederal = processing.run("native:extractbyexpression", 
-               {'INPUT':viaDeslocamento,
-                'EXPRESSION':'"tipo"  = 2 and ( "jurisdicao" = 1 or  "jurisdicao" =2 )',
-                 'OUTPUT':'TEMPORARY_OUTPUT'}) 
+        # viaFederal = processing.run("native:extractbyexpression", 
+        #        {'INPUT':viaDeslocamento,
+        #         'EXPRESSION':'"tipo"  = 2 and ( "jurisdicao" = 1 or  "jurisdicao" =2 )',
+        #          'OUTPUT':'TEMPORARY_OUTPUT'},
+        #          context = context, feedback = feedback)['OUTPUT'] 
                 
-        return {self.OUTPUT: dest_id}
+        return {self.OUTPUT_VIA: dest_id_vias,
+                self.OUTPUT_DRENAGEM: dest_id_drenagem,
+                self.OUTPUT_MATA_CILIAR: dest_id_mataciliar
+                }

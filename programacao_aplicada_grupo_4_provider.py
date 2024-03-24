@@ -34,6 +34,8 @@ __revision__ = '$Format:%H$'
 
 from qgis.core import QgsProcessingProvider
 from .programacao_aplicada_grupo_4_algorithm import ProgramacaoAplicadaGrupo4Algorithm
+from .algorithms.Projeto1.solucao import Projeto1Solucao
+from .algorithms.Projeto1.solucao_complementar import Projeto1SolucaoComplementar
 
 
 class ProgramacaoAplicadaGrupo4Provider(QgsProcessingProvider):
@@ -56,6 +58,8 @@ class ProgramacaoAplicadaGrupo4Provider(QgsProcessingProvider):
         Loads all algorithms belonging to this provider.
         """
         self.addAlgorithm(ProgramacaoAplicadaGrupo4Algorithm())
+        self.addAlgorithm(Projeto1Solucao())
+        self.addAlgorithm(Projeto1SolucaoComplementar())
         # add additional algorithms here
         # self.addAlgorithm(MyOtherAlgorithm())
 

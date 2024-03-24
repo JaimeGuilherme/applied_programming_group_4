@@ -39,41 +39,172 @@ from qgis.core import (QgsProcessing,
 
 
 class Projeto1Solucao(QgsProcessingAlgorithm):
-    """
-    This is an example algorithm that takes a vector layer and
-    creates a new identical one.
+  """
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
 
-    It is meant to be used as an example of how to create your own
-    algorithms and explain methods and variables used to do it. An
-    algorithm like this will be available in all elements, and there
-    is not need for additional work.
+from qgis.PyQt.QtCore import QCoreApplication
+from qgis.core import (QgsProcessing,
+                       QgsFeatureSink,
+                       QgsProcessingException,
+                       QgsProcessingAlgorithm,
+                       QgsProcessingParameterFeatureSource,
+                       QgsProcessingParameterFeatureSink,
+                       QgsProcessingParameterDistance)
+from qgis import processing
 
-    All Processing algorithms should extend the QgsProcessingAlgorithm
-    class.
-    """
 
-    # Constants used to refer to parameters and outputs. They will be
-    # used when calling the algorithm from another algorithm, or when
-    # calling from the QGIS console.
+class CartaTrafegabilidade(QgsProcessingAlgorithm):
 
+    VIA = 'VIA' #Camada da via
+    RVIA ='RVIA' # raio do buffer da via 
+    VGT = 'VGT' # camada vegetação 
+    MDA = 'MDA' # Camada Massa d'água
+    TD = 'TD'   # Camada Trecho de drenagem 
+    RTD ='RTD'  # Raio do buffer do trecho de drenagem 
+    RMC ='RMC'  # Raio do buffer mata ciliar 
+    AED ='AED'  # Camada Área edificada
+    ASD ='ASD'  # Área sem dados 
+    MDT = 'MDT' # MDT
+    TP = 'TP'   # Tamanho do pixel 
     OUTPUT = 'OUTPUT'
-    INPUT = 'INPUT'
 
-    def initAlgorithm(self, config):
-        """
-        Here we define the inputs and output of the algorithm, along
-        with some other properties.
-        """
+    def tr(self, string):
+    
+        return QCoreApplication.translate('Processing', string)
 
-        # We add the input vector features source. It can have any kind of
-        # geometry.
+    def createInstance(self):
+        return CartaTrafegabilidade()
+
+    def name(self):
+        return 'cartatrafegabilidade'
+
+    def displayName(self):
+        return self.tr('Projeto 1')
+
+    def group(self):
+        return self.tr('Projeto')
+
+    def groupId(self):
+        return 'examplescripts'
+
+    def shortHelpString(self):
+        return self.tr("Projeto para identificação de trafegabilidade")
+
+    def initAlgorithm(self, config=None):
+
         self.addParameter(
             QgsProcessingParameterFeatureSource(
-                self.INPUT,
-                self.tr('Input layer'),
-                [QgsProcessing.TypeVectorAnyGeometry]
+                self.VIA,
+                self.tr('Camada Via de deslocamento'),
+                [QgsProcessing. TypeVectorLine]
             )
         )
+        
+        self.addParameter (
+            QgsProcessingParameterDistance (
+                self.RVIA,
+                self.tr('Buffer para a via de deslocamento' ),
+                parentParameterName =self.VIA ,
+                minValue=0,
+                defaultValue =1.0
+            )
+)
+
+        self.addParameter(
+            QgsProcessingParameterFeatureSource(
+                self.VGT,
+                self.tr('Camada Vegetação'),
+                [QgsProcessing.TypeVectorPolygon]
+            )
+        )
+        
+        self.addParameter(
+            QgsProcessingParameterFeatureSource(
+                self.MDA,
+                self.tr("Camada Massa d'agua "),
+                [QgsProcessing.TypeVectorPolygon]
+            )
+        )
+
+        self.addParameter(
+            QgsProcessingParameterFeatureSource(
+                self.TD,
+                self.tr('Camada Trecho de Drenagem'),
+                [QgsProcessing.TypeVectorLine]
+            )
+        )
+        
+        self.addParameter (
+            QgsProcessingParameterDistance (
+                self.RTD,
+                self.tr('Buffer Trecho de deslocamento' ),
+                parentParameterName =self.TD ,
+                minValue=0,
+                defaultValue =1.0
+            )
+)       
+        self.addParameter (
+            QgsProcessingParameterDistance (
+                self.RMC,
+                self.tr('Buffer da Mata ciliar' ),
+                parentParameterName =self.VGT ,
+                minValue=0,
+                defaultValue =1.0
+            )
+)    
+
+        self.addParameter(
+            QgsProcessingParameterFeatureSource(
+                self.AED,
+                self.tr("Camada Área edificada"),
+                [QgsProcessing.TypeVectorPolygon]
+            )
+        )   
+
+        self.addParameter(
+            QgsProcessingParameterFeatureSource(
+                self.ASD,
+                self.tr("Camada Área sem dados"),
+                [QgsProcessing.TypeVectorPolygon]
+            )
+        )
+
+        self.addParameter (
+            QgsProcessingParameterDistance (
+                self.RTD,
+                self.tr('Buffer Trecho de deslocamento' ),
+                parentParameterName =self.TD ,
+                minValue=0,
+                defaultValue =1.0
+            )
+)    
+
+        self.addParameter (
+            QgsProcessingParameterDistance (
+                self.TP,
+                self.tr('Tamanho do pixel'),
+                parentParameterName =self.MDT ,
+                minValue=0,
+                defaultValue =1.0
+            )
+)           
+        
+        self.addParameter(
+            QgsProcessingParameterFeatureSource(
+                self.MDT,
+                self.tr("Camada MDT"),
+                [QgsProcessing.TypeRaster]
+            )
+        )   
+        
 
         # We add a feature sink in which to store our processed features (this
         # usually takes the form of a newly created vector layer when the
@@ -86,21 +217,85 @@ class Projeto1Solucao(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context, feedback):
-        """
-        Here is where the processing itself takes place.
-        """
+        vias = self.parameterAsSource(
+            parameters,
+            self.VIA,
+            context
+        )
 
-        # Retrieve the feature source and sink. The 'dest_id' variable is used
-        # to uniquely identify the feature sink, and must be included in the
-        # dictionary returned by the processAlgorithm function.
-        source = self.parameterAsSource(parameters, self.INPUT, context)
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT,
-                context, source.fields(), source.wkbType(), source.sourceCrs())
+        mdagua = self.parameterAsSource(
+            parameters,
+            self.MDA,
+            context
+        )
+
+        areaEdificada = self.parameterAsSource(
+            parameters,
+            self.AED,
+            context
+        )
+
+        vegetacao = self.parameterAsSource(
+            parameters,
+            self.VGT,
+            context
+        )
+
+        trechoDrenagem = self.parameterAsSource(
+            parameters,
+            self.TD,
+            context
+        )
+
+
+
+        raioVia = self.parameterAsDouble(
+            parameters, 
+            self.RVIA,
+            context
+        )
+
+        raioTrechoDrenagem =  self.parameterAsDouble(
+            parameters, 
+            self.RTD,
+            context
+        )
+
+        raioMataCiliar =  self.parameterAsDouble(
+            parameters, 
+            self.RMC,
+            context)
+        
+        # If source was not found, throw an exception to indicate that the algorithm
+        # encountered a fatal error. The exception text can be any string, but in this
+        # case we use the pre-built invalidSourceError method to return a standard
+        # helper text for when a source cannot be evaluated
+        if vias is None:
+            raise QgsProcessingException(self.invalidSourceError(parameters, self.INPUT))
+
+        (sink, dest_id) = self.parameterAsSink(
+            parameters,
+            self.OUTPUT,
+            context,
+            vias.fields(),
+            vias.wkbType(),
+            vias.sourceCrs()
+        )
+
+        # Send some information to the user
+        feedback.pushInfo(f'CRS is {vias.sourceCrs().authid()}')
+
+        # If sink was not created, throw an exception to indicate that the algorithm
+        # encountered a fatal error. The exception text can be any string, but in this
+        # case we use the pre-built invalidSinkError method to return a standard
+        # helper text for when a sink cannot be evaluated
+        if sink is None:
+            raise QgsProcessingException(self.invalidSinkError(parameters, self.OUTPUT))
 
         # Compute the number of steps to display within the progress bar and
         # get features from source
-        total = 100.0 / source.featureCount() if source.featureCount() else 0
-        features = source.getFeatures()
+        total = 100.0 / vias.featureCount() if vias.featureCount() else 0
+        features = vias.getFeatures()
 
         for current, feature in enumerate(features):
             # Stop the algorithm if cancel button has been clicked
@@ -113,50 +308,47 @@ class Projeto1Solucao(QgsProcessingAlgorithm):
             # Update the progress bar
             feedback.setProgress(int(current * total))
 
-        # Return the results of the algorithm. In this case our only result is
-        # the feature sink which contains the processed features, but some
-        # algorithms may return multiple feature sinks, calculated numeric
-        # statistics, etc. These should all be included in the returned
-        # dictionary, with keys matching the feature corresponding parameter
-        # or output names.
+        #Obter via de deslocamento 
+        viaDeslocamento = processing.run("native:buffer", 
+            {'INPUT':vias,
+             'DISTANCE':raioVia,
+             'SEGMENTS':5,
+             'END_CAP_STYLE':0,
+             'JOIN_STYLE':0,
+             'MITER_LIMIT':2,
+             'DISSOLVE':False,
+             'SEPARATE_DISJOINT':False,
+             'OUTPUT':'TEMPORARY_OUTPUT'})
+
+        #Obter o trecho de drenagem 
+        
+        trechoDrenagemFinal = processing.run("native:buffer", 
+            {'INPUT':trechoDrenagem,
+             'DISTANCE':raioTrechoDrenagem,
+             'SEGMENTS':5,
+             'END_CAP_STYLE':0,
+             'JOIN_STYLE':0,
+             'MITER_LIMIT':2,
+             'DISSOLVE':False,
+             'SEPARATE_DISJOINT':False,
+             'OUTPUT':'TEMPORARY_OUTPUT'})
+        
+        # Obter mata ciliar 
+        mataCiliarFinal = processing.run("native:buffer", 
+            {'INPUT':vegetacao,
+             'DISTANCE':raioMataCiliar,
+             'SEGMENTS':5,
+             'END_CAP_STYLE':0,
+             'JOIN_STYLE':0,
+             'MITER_LIMIT':2,
+             'DISSOLVE':False,
+             'SEPARATE_DISJOINT':False,
+             'OUTPUT':'TEMPORARY_OUTPUT'})
+        
+        # Extrair Vias de deslocamento federal
+        viaFederal = processing.run("native:extractbyexpression", 
+               {'INPUT':viaDeslocamento,
+                'EXPRESSION':'"tipo"  = 2 and ( "jurisdicao" = 1 or  "jurisdicao" =2 )',
+                 'OUTPUT':'TEMPORARY_OUTPUT'}) 
+                
         return {self.OUTPUT: dest_id}
-
-    def name(self):
-        """
-        Returns the algorithm name, used for identifying the algorithm. This
-        string should be fixed for the algorithm, and must not be localised.
-        The name should be unique within each provider. Names should contain
-        lowercase alphanumeric characters only and no spaces or other
-        formatting characters.
-        """
-        return 'Solução do Projeto 1'
-
-    def displayName(self):
-        """
-        Returns the translated algorithm name, which should be used for any
-        user-visible display of the algorithm name.
-        """
-        return self.tr(self.name())
-
-    def group(self):
-        """
-        Returns the name of the group this algorithm belongs to. This string
-        should be localised.
-        """
-        return self.tr(self.groupId())
-
-    def groupId(self):
-        """
-        Returns the unique ID of the group this algorithm belongs to. This
-        string should be fixed for the algorithm, and must not be localised.
-        The group id should be unique within each provider. Group id should
-        contain lowercase alphanumeric characters only and no spaces or other
-        formatting characters.
-        """
-        return 'Projeto 1'
-
-    def tr(self, string):
-        return QCoreApplication.translate('Processing', string)
-
-    def createInstance(self):
-        return Projeto1Solucao()

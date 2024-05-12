@@ -56,7 +56,6 @@ class ProgramacaoAplicadaGrupo4Provider(QgsProcessingProvider):
         """
         Loads all algorithms belonging to this provider.
         """
-        self.addAlgorithm(ProgramacaoAplicadaGrupo4Algorithm())
         self.addAlgorithm(Projeto1Solucao())
         self.addAlgorithm(Projeto1SolucaoComplementar())
         # add additional algorithms here

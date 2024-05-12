@@ -33,7 +33,6 @@ __copyright__ = '(C) 2024 by Grupo 4'
 __revision__ = '$Format:%H$'
 
 from qgis.core import QgsProcessingProvider
-from .programacao_aplicada_grupo_4_algorithm import ProgramacaoAplicadaGrupo4Algorithm
 from .algorithms.Projeto1.solucao import Projeto1Solucao
 from .algorithms.Projeto1.solucao_complementar import Projeto1SolucaoComplementar
 

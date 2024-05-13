@@ -36,7 +36,7 @@ from qgis.core import QgsProcessingProvider
 from .algorithms.Projeto1.solucao import Projeto1Solucao
 from .algorithms.Projeto1.solucao_complementar import Projeto1SolucaoComplementar
 from .algorithms.Projeto2.solucao import Projeto2Solucao
-from .algorithms.Projeto2.solucao_complementar import Projeto2SolucaoComplementar
+#from .algorithms.Projeto2.solucao_complementar import Projeto2SolucaoComplementar (Problema de carregamento do algoritmo)
 
 
 class ProgramacaoAplicadaGrupo4Provider(QgsProcessingProvider):
@@ -61,7 +61,7 @@ class ProgramacaoAplicadaGrupo4Provider(QgsProcessingProvider):
         self.addAlgorithm(Projeto1Solucao())
         self.addAlgorithm(Projeto1SolucaoComplementar())
         self.addAlgorithm(Projeto2Solucao())
-        self.addAlgorithm(Projeto2SolucaoComplementar())
+        #self.addAlgorithm(Projeto2SolucaoComplementar()) (Problema de carregamento do algoritmo)
         # add additional algorithms here
         # self.addAlgorithm(MyOtherAlgorithm())
 

@@ -22,7 +22,7 @@ class Projeto2Solucao(QgsProcessingAlgorithm):
     OUTPUT_PISTA_PONTO = 'OUTPUT_PISTA_PONTO'
     OUTPUT_PISTA_LINHA = 'OUTPUT_PISTA_LINHA'
     OUTPUT_PISTA_AREA = 'OUTPUT_PISTA_AREA'
-    OUTPUT_MOLDURA_COMPLEMENTAR ='OUTPUT_MOLDURA_COMPLEMENTAR'
+   
 
     def tr(self, string):
         return QCoreApplication.translate('Projeto2Solucao', string)
@@ -106,40 +106,69 @@ class Projeto2Solucao(QgsProcessingAlgorithm):
             sinkCurvaNivel.addFeature(feature, QgsFeatureSink.FastInsert)
 
         # Objetivo 2 
-        PontosMDT = processing.run("native:rastersampling", {'INPUT':pistaPonto,
-                                                 'RASTERCOPY':raster,
-                                                 'COLUMN_PREFIX':'Altura',
-                                                 'OUTPUT':'TEMPORARY_OUTPUT'}) 
-        PontosMDTLayer = PontosMDT.['OUTPUT']
-
-        
-        (sinkPontosMDT, sinkPontosMDTId) = self.parameterAsSink(parameters, self.OUTPUT_VIA_FEDERAL_ESTADUAL, context, PontosMDTLayer.fields(), PontosMDTLayer.wkbType(), PontosMDTLayer.sourceCrs())
-        for feature in PontosMDTLayer.getFeatures():
-            sinkPontosMDT.addFeature(feature, QgsFeatureSink.FastInsert)
+        # Amostragem de raster para a camada de ponto
+        pontosMDT = processing.run("native:rastersampling", {
+            'INPUT': pistaPonto,
+            'RASTERCOPY': raster,
+            'COLUMN_PREFIX': 'Altura',
+            'OUTPUT': 'memory:'
+        }, context=context, feedback=feedback)
+        pontosMDTLayer = pontosMDT['OUTPUT']
 
 
-        # (sinkViasFederaisEstaduais, sinkViasFederaisEstaduaisId) = self.parameterAsSink(parameters, self.OUTPUT_VIA_FEDERAL_ESTADUAL, context, viasFederaisEstaduaisLayer.fields(), viasFederaisEstaduaisLayer.wkbType(), viasFederaisEstaduaisLayer.sourceCrs())
-        # for feature in viasFederaisEstaduaisLayer.getFeatures():
-        #     sinkViasFederaisEstaduais.addFeature(feature, QgsFeatureSink.FastInsert)
-        
-        # # Obter terreno exposto 
-        # expressao = '"tipo" = 1000'
-        # terrenoExpostoResult = processing.run("native:extractbyexpression", {
-        #     'INPUT': vegetacaoLayer,
-        #     'EXPRESSION': expressao,
-        #     'OUTPUT': 'memory:'
-        # }, context=context, feedback=feedback)
-        # terrenoExpostoLayer = terrenoExpostoResult['OUTPUT']
-
-        # (sinkTerrenoExposto, sinkTerrenoExpostoId) = self.parameterAsSink(parameters, self.OUTPUT_CAMPO, context, terrenoExpostoLayer.fields(), terrenoExpostoLayer.wkbType(), terrenoExpostoLayer.sourceCrs())
-        # for feature in terrenoExpostoLayer.getFeatures():
-        #     sinkTerrenoExposto.addFeature(feature, QgsFeatureSink.FastInsert)
+        # Gerar pontos ao longo da linha
+        linhaPontos = processing.run("qgis:generatepointspixelcentroidsalongline", {
+            'INPUT_RASTER': raster,
+            'INPUT_VECTOR': pistaLinha,
+            'OUTPUT': 'memory:'
+        }, context=context, feedback=feedback)
+        linhaPontosLayer = linhaPontos['OUTPUT']
 
 
-        
-        # Garanta que todos os resultados dos processamentos sejam incluídos no dicionário de retorno
+        # Amostragem de raster para a camada de linha
+        linhasMDT = processing.run("native:rastersampling", {
+            'INPUT': linhaPontosLayer,
+            'RASTERCOPY': raster,
+            'COLUMN_PREFIX': 'Altura',
+            'OUTPUT': 'memory:'
+        }, context=context, feedback=feedback)
+        linhaMDTLayer = linhasMDT['OUTPUT']
+
+        # Gerar pontos nos centróides dos pixels dentro dos polígonos
+        areaPontos = processing.run("native:generatepointspixelcentroidsinsidepolygons", {
+            'INPUT_RASTER': raster,
+            'INPUT_VECTOR': pistaArea,
+            'OUTPUT': 'memory:'
+        }, context=context, feedback=feedback)
+        areaPontosLayer = areaPontos['OUTPUT']
+
+        # Amostragem de raster para a camada de área
+        areasMDT = processing.run("native:rastersampling", {
+            'INPUT': areaPontosLayer,
+            'RASTERCOPY': raster,
+            'COLUMN_PREFIX': 'Altura',
+            'OUTPUT': 'memory:'
+        }, context=context, feedback=feedback)
+        areaMDTLayer = areasMDT['OUTPUT']
+
+        # Configurando as saídas dos processamentos para as camadas de linha e área
+        (sinkLinhaMDT, sinkLinhaMDTId) = self.parameterAsSink(parameters, self.OUTPUT_PISTA_LINHA, context, linhaMDTLayer.fields(), linhaMDTLayer.wkbType(), linhaMDTLayer.sourceCrs())
+        for feature in linhaMDTLayer.getFeatures():
+            sinkLinhaMDT.addFeature(feature, QgsFeatureSink.FastInsert)
+
+        (sinkAreaMDT, sinkAreaMDTId) = self.parameterAsSink(parameters, self.OUTPUT_PISTA_AREA, context, areaMDTLayer.fields(), areaMDTLayer.wkbType(), areaMDTLayer.sourceCrs())
+        for feature in areaMDTLayer.getFeatures():
+            sinkAreaMDT.addFeature(feature, QgsFeatureSink.FastInsert)
+
+        (sinkPontosMDT, sinkPontosMDTId) = self.parameterAsSink(parameters, self.OUTPUT_PISTA_PONTO, context, pontosMDTLayer.fields(), pontosMDTLayer.wkbType(), pontosMDTLayer.sourceCrs())
+        for feature in pontosMDTLayer.getFeatures():
+            sinkPontosMDT.addFeature(feature, QgsFeatureSink.FastInsert)    
+
+        # Garantir que todos os resultados dos processamentos sejam incluídos no dicionário de retorno
         return {
-            
-            self.OUTPUT_CURVA: sinkCurvaNivelId,  # Garanta que sinkDrenagemId seja definido corretamente
-            
+            self.OUTPUT_CURVA: sinkCurvaNivelId,
+            self.OUTPUT_PISTA_PONTO: sinkPontosMDTId,
+            self.OUTPUT_PISTA_LINHA: sinkLinhaMDTId,
+            self.OUTPUT_PISTA_AREA: sinkAreaMDTId
         }
+

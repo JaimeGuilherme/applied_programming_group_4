@@ -65,6 +65,7 @@ class Projeto2Solucao(QgsProcessingAlgorithm):
         pistaPonto = self.parameterAsVectorLayer(parameters, self.INPUT_PISTA_PONTO , context)
         pistaLinha = self.parameterAsVectorLayer(parameters, self.INPUT_PISTA_LINHA, context)
         pistaArea = self.parameterAsVectorLayer(parameters, self.INPUT_PISTA_AREA, context)
+        raster = self.parameterAsRasterLayer(parameters, self.INPUT_MOLDURA, context)
         escala = self.parameterAsString(parameters, self.INPUT_ESCALA, context)
 
         #dicionario escala 
@@ -104,6 +105,17 @@ class Projeto2Solucao(QgsProcessingAlgorithm):
         for feature in curvaNivelLayer.getFeatures():
             sinkCurvaNivel.addFeature(feature, QgsFeatureSink.FastInsert)
 
+        # Objetivo 2 
+        PontosMDT = processing.run("native:rastersampling", {'INPUT':pistaPonto,
+                                                 'RASTERCOPY':raster,
+                                                 'COLUMN_PREFIX':'Altura',
+                                                 'OUTPUT':'TEMPORARY_OUTPUT'}) 
+        PontosMDTLayer = PontosMDT.['OUTPUT']
+
+        
+        (sinkPontosMDT, sinkPontosMDTId) = self.parameterAsSink(parameters, self.OUTPUT_VIA_FEDERAL_ESTADUAL, context, PontosMDTLayer.fields(), PontosMDTLayer.wkbType(), PontosMDTLayer.sourceCrs())
+        for feature in PontosMDTLayer.getFeatures():
+            sinkPontosMDT.addFeature(feature, QgsFeatureSink.FastInsert)
 
 
         # (sinkViasFederaisEstaduais, sinkViasFederaisEstaduaisId) = self.parameterAsSink(parameters, self.OUTPUT_VIA_FEDERAL_ESTADUAL, context, viasFederaisEstaduaisLayer.fields(), viasFederaisEstaduaisLayer.wkbType(), viasFederaisEstaduaisLayer.sourceCrs())

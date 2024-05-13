@@ -1,11 +1,9 @@
 from qgis.PyQt.QtCore import QCoreApplication
-from qgis.core import (QgsProcessing, QgsFeatureSink, QgsProcessingException,
+from qgis.core import (QgsProcessing, QgsFeatureSink,
                     QgsProcessingAlgorithm, QgsProcessingParameterFeatureSource,
-                    QgsProcessingParameterFeatureSink, QgsProcessingParameterDistance,
+                    QgsProcessingParameterFeatureSink,
                     QgsProcessingParameterRasterLayer,
-                    QgsCoordinateReferenceSystem,
-                    QgsProcessingParameterEnum,
-                    QgsFeature, QgsPointXY)
+                    QgsProcessingParameterEnum)
 from qgis import processing
 class Projeto2Solucao(QgsProcessingAlgorithm):
     # Definição dos identificadores dos parâmetros e saídas

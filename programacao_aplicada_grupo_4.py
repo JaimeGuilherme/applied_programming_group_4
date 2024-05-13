@@ -36,7 +36,7 @@ import os
 import sys
 import inspect
 
-from qgis.core import QgsProcessingAlgorithm, QgsApplication
+from qgis.core import QgsApplication
 from .programacao_aplicada_grupo_4_provider import ProgramacaoAplicadaGrupo4Provider
 
 cmd_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0]

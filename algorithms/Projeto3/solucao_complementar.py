@@ -84,10 +84,10 @@ class Projeto3SolucaoComplementar(QgsProcessingAlgorithm):
         new_fields.append(QgsField("Tipo de Mudança", QVariant.String))
         new_fields.append(QgsField("Atributos Modificados", QVariant.String))
 
-        # Create sink for modified features
+        # Criando sink para as features modificadas
         (mod_sink, mod_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_MODIFICADOS, context, new_fields, dia1_layer.wkbType(), dia1_layer.sourceCrs())
 
-        # Create sink for modified features outside buffer
+        # Criando sink para as features modificadas fora do buffer
         (mod_out_sink, mod_out_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_MODIFICADOS_FORA, context, new_fields, dia1_layer.wkbType(), dia1_layer.sourceCrs())
 
         ignore_fields = {dia1_layer.fields().fieldName(i) for i in ignora_indexes}

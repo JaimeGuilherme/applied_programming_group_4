@@ -7,7 +7,7 @@ from qgis.core import (QgsProcessing, QgsFeatureSink, QgsProcessingException,
                        QgsField, QgsFields)
 from qgis.PyQt.QtCore import QVariant
 
-class Projeto3Solucao(QgsProcessingAlgorithm):
+class Projeto3SolucaoComplementar(QgsProcessingAlgorithm):
     INPUT_PONTOS = 'INPUT_PONTOS'
     INPUT_DIA_1 = 'INPUT_DIA_1'
     INPUT_DIA_2 = 'INPUT_DIA_2'
@@ -23,7 +23,7 @@ class Projeto3Solucao(QgsProcessingAlgorithm):
         return QCoreApplication.translate('Projeto3SolucaoComplementar', string)
 
     def createInstance(self):
-        return Projeto3Solucao()
+        return Projeto3SolucaoComplementar()
 
     def name(self):
         return 'projeto3solucaocomplementar'
@@ -81,8 +81,17 @@ class Projeto3Solucao(QgsProcessingAlgorithm):
         new_fields = QgsFields()
         for field in dia1_layer.fields():
             new_fields.append(field)
-        new_fields.append(QgsField("change_type", QVariant.String))
-        new_fields.append(QgsField("changed_attributes", QVariant.String))
+        new_fields.append(QgsField("Tipo de Mudança", QVariant.String))
+        new_fields.append(QgsField("Atributos Modificados", QVariant.String))
+
+        # Create sink for modified features
+        (mod_sink, mod_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_MODIFICADOS, context, new_fields, dia1_layer.wkbType(), dia1_layer.sourceCrs())
+
+        # Create sink for modified features outside buffer
+        (mod_out_sink, mod_out_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_MODIFICADOS_FORA, context, new_fields, dia1_layer.wkbType(), dia1_layer.sourceCrs())
+
+        ignore_fields = {dia1_layer.fields().fieldName(i) for i in ignora_indexes}
+        ignore_fields.update(['fid', 'id'])
 
         for key in dia1_features:
             if key in dia2_features:
@@ -90,44 +99,45 @@ class Projeto3Solucao(QgsProcessingAlgorithm):
                 feat2 = dia2_features[key]
                 geometry_changed = feat1.geometry().distance(feat2.geometry()) > tol
                 if geometry_changed:
-                    change_type = "modified"
+                    change_type = "Feição Modificada"
                     changed_attributes = ["geometria"]
                 else:
-                    changed_attributes = [field for field in feat1.fields().names() if feat1[field] != feat2[field] and field not in {feat1.fields().fieldName(i) for i in ignora_indexes}]
-                    change_type = "modified" if changed_attributes else None
+                    changed_attributes = [field for field in feat1.fields().names() if feat1[field] != feat2[field] and field not in ignore_fields]
+                    change_type = "Feição Modificada" if changed_attributes else None
 
                 if change_type:
-                    feat2.setAttribute("change_type", change_type)
-                    feat2.setAttribute("changed_attributes", ",".join(changed_attributes))
-                    modified_features.append(feat2)
-                    if not buffer_geometry.contains(feat2.geometry()):
-                        modified_features_outside_buffer.append(feat2)
+                    new_feat = QgsFeature(new_fields)
+                    new_feat.setGeometry(feat2.geometry())
+                    new_feat.setAttributes(feat2.attributes() + [change_type, ",".join(changed_attributes)])
+                    modified_features.append(new_feat)
+                    mod_sink.addFeature(new_feat, QgsFeatureSink.FastInsert)
+                    if not buffer_geometry.contains(new_feat.geometry()):
+                        modified_features_outside_buffer.append(new_feat)
+                        mod_out_sink.addFeature(new_feat, QgsFeatureSink.FastInsert)
 
         for key in dia2_features:
             if key not in dia1_features:
                 feat2 = dia2_features[key]
-                feat2.setAttribute("change_type", "added")
-                feat2.setAttribute("changed_attributes", primary_key)
-                modified_features.append(feat2)
-                if not buffer_geometry.contains(feat2.geometry()):
-                    modified_features_outside_buffer.append(feat2)
+                new_feat = QgsFeature(new_fields)
+                new_feat.setGeometry(feat2.geometry())
+                new_feat.setAttributes(feat2.attributes() + ["Feição Adicionada", primary_key])
+                modified_features.append(new_feat)
+                mod_sink.addFeature(new_feat, QgsFeatureSink.FastInsert)
+                if not buffer_geometry.contains(new_feat.geometry()):
+                    modified_features_outside_buffer.append(new_feat)
+                    mod_out_sink.addFeature(new_feat, QgsFeatureSink.FastInsert)
 
         for key in dia1_features:
             if key not in dia2_features:
                 feat1 = dia1_features[key]
-                feat1.setAttribute("change_type", "removed")
-                feat1.setAttribute("changed_attributes", primary_key)
-                modified_features.append(feat1)
-                if not buffer_geometry.contains(feat1.geometry()):
-                    modified_features_outside_buffer.append(feat1)
-
-        (mod_sink, mod_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_MODIFICADOS, context, new_fields, dia1_layer.wkbType(), dia1_layer.sourceCrs())
-        for feat in modified_features:
-            mod_sink.addFeature(feat, QgsFeatureSink.FastInsert)
-
-        (mod_out_sink, mod_out_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_MODIFICADOS_FORA, context, new_fields, dia1_layer.wkbType(), dia1_layer.sourceCrs())
-        for feat in modified_features_outside_buffer:
-            mod_out_sink.addFeature(feat, QgsFeatureSink.FastInsert)
+                new_feat = QgsFeature(new_fields)
+                new_feat.setGeometry(feat1.geometry())
+                new_feat.setAttributes(feat1.attributes() + ["Feição Removida", primary_key])
+                modified_features.append(new_feat)
+                mod_sink.addFeature(new_feat, QgsFeatureSink.FastInsert)
+                if not buffer_geometry.contains(new_feat.geometry()):
+                    modified_features_outside_buffer.append(new_feat)
+                    mod_out_sink.addFeature(new_feat, QgsFeatureSink.FastInsert)
 
         return {
             self.OUTPUT_CURVA: line_dest_id,
@@ -137,4 +147,4 @@ class Projeto3Solucao(QgsProcessingAlgorithm):
         }
 
 def register_algorithms():
-    QgsApplication.processingRegistry().addAlgorithm(Projeto3Solucao())
+    QgsApplication.processingRegistry().addAlgorithm(Projeto3SolucaoComplementar())

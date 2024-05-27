@@ -81,8 +81,8 @@ class Projeto3SolucaoComplementar(QgsProcessingAlgorithm):
         new_fields = QgsFields()
         for field in dia1_layer.fields():
             new_fields.append(field)
-        new_fields.append(QgsField("change_type", QVariant.String))
-        new_fields.append(QgsField("changed_attributes", QVariant.String))
+        new_fields.append(QgsField("Tipo de Mudança", QVariant.String))
+        new_fields.append(QgsField("Atributos Modificados", QVariant.String))
 
         # Create sink for modified features
         (mod_sink, mod_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_MODIFICADOS, context, new_fields, dia1_layer.wkbType(), dia1_layer.sourceCrs())
@@ -90,16 +90,19 @@ class Projeto3SolucaoComplementar(QgsProcessingAlgorithm):
         # Create sink for modified features outside buffer
         (mod_out_sink, mod_out_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_MODIFICADOS_FORA, context, new_fields, dia1_layer.wkbType(), dia1_layer.sourceCrs())
 
+        ignore_fields = {dia1_layer.fields().fieldName(i) for i in ignora_indexes}
+        ignore_fields.update(['fid', 'id'])
+
         for key in dia1_features:
             if key in dia2_features:
                 feat1 = dia1_features[key]
                 feat2 = dia2_features[key]
                 geometry_changed = feat1.geometry().distance(feat2.geometry()) > tol
                 if geometry_changed:
-                    change_type = "modified"
+                    change_type = "Feição Modificada"
                     changed_attributes = ["geometria"]
                 else:
-                    changed_attributes = [field for field in feat1.fields().names() if feat1[field] != feat2[field] and field not in {feat1.fields().fieldName(i) for i in ignora_indexes}]
+                    changed_attributes = [field for field in feat1.fields().names() if feat1[field] != feat2[field] and field not in ignore_fields]
                     change_type = "Feição Modificada" if changed_attributes else None
 
                 if change_type:

@@ -25,7 +25,7 @@
 """
 
 __author__ = 'Grupo 4'
-__date__ = '2024-03-24'
+__date__ = '2024-05-27'
 __copyright__ = '(C) 2024 by Grupo 4'
 
 # This will get replaced with a git SHA1 when you do a git archive
@@ -131,7 +131,7 @@ class ProgramacaoAplicadaGrupo4Algorithm(QgsProcessingAlgorithm):
         lowercase alphanumeric characters only and no spaces or other
         formatting characters.
         """
-        return 'Solução do Projeto 1'
+        return 'Solução do Projeto 3'
 
     def displayName(self):
         """
@@ -155,7 +155,7 @@ class ProgramacaoAplicadaGrupo4Algorithm(QgsProcessingAlgorithm):
         contain lowercase alphanumeric characters only and no spaces or other
         formatting characters.
         """
-        return 'Projeto 1'
+        return 'Projeto 3'
 
     def tr(self, string):
         return QCoreApplication.translate('Processing', string)

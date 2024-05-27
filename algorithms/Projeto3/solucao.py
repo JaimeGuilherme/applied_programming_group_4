@@ -16,7 +16,6 @@ class Projeto3Solucao(QgsProcessingAlgorithm):
     OUTPUT_MODIFICADOS = 'OUTPUT_MODIFICADOS'
     OUTPUT_BUFFER = 'OUTPUT_BUFFER'
     OUTPUT_MODIFICADOS_FORA = 'OUTPUT_MODIFICADOS_FORA'
-    CREATION_TIME_FIELD = 'creation_time'
 
     def tr(self, string):
         return QCoreApplication.translate('Projeto3Solucao', string)
@@ -37,19 +36,19 @@ class Projeto3Solucao(QgsProcessingAlgorithm):
         return 'exemplos'
 
     def shortHelpString(self):
-        return self.tr("Identifica e extrai pontos modificados fora do buffer.")
+        return self.tr("Identifica e extrai geometrias modificadas fora do buffer.")
 
     def initAlgorithm(self, config=None):
-        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT_PONTOS, self.tr('Camada de Pontos Percorridos'), [QgsProcessing.TypeVectorPoint]))
-        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT_DIA_1, self.tr('Camada do dia 1'), [QgsProcessing.TypeVectorPoint]))
-        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT_DIA_2, self.tr('Camada do dia 2'), [QgsProcessing.TypeVectorPoint]))
+        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT_PONTOS, self.tr('Camada de Pontos'), [QgsProcessing.TypeVectorPoint]))
+        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT_DIA_1, self.tr('Camada do Dia 1'), [QgsProcessing.TypeVectorPoint, QgsProcessing.TypeVectorLine, QgsProcessing.TypeVectorPolygon]))
+        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT_DIA_2, self.tr('Camada do Dia 2'), [QgsProcessing.TypeVectorPoint, QgsProcessing.TypeVectorLine, QgsProcessing.TypeVectorPolygon]))
         self.addParameter(QgsProcessingParameterDistance(self.INPUT_TOL, self.tr('Distância de Tolerância'), defaultValue=10))
         self.addParameter(QgsProcessingParameterField(self.INPUT_PRIMARY_KEY, self.tr('Chave Primária'), None, self.INPUT_DIA_1))
-        # self.addParameter(QgsProcessingParameterEnum(self.INPUT_IGNORA, self.tr('Atributos a ignorar'), [], allowMultiple=True))
+        # self.addParameter(QgsProcessingParameterEnum(self.INPUT_IGNORA, self.tr('Atributos a ignorar'), [], allowMultiple=True, optional=True))
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_CURVA, self.tr('Saída de Rota Percorrida'), QgsProcessing.TypeVectorLine))
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_MODIFICADOS, self.tr('Pontos Modificados'), QgsProcessing.TypeVectorPoint))
+        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_MODIFICADOS, self.tr('Geometrias Modificadas'), QgsProcessing.TypeVectorAnyGeometry))
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_BUFFER, self.tr('Buffer da Rota'), QgsProcessing.TypeVectorPolygon))
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_MODIFICADOS_FORA, self.tr('Pontos Modificados Fora do Buffer'), QgsProcessing.TypeVectorPoint))
+        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_MODIFICADOS_FORA, self.tr('Geometrias Modificadas Fora do Buffer'), QgsProcessing.TypeVectorAnyGeometry))
 
     def processAlgorithm(self, parameters, context, feedback):
         pontos_layer = self.parameterAsVectorLayer(parameters, self.INPUT_PONTOS, context)
@@ -59,7 +58,7 @@ class Projeto3Solucao(QgsProcessingAlgorithm):
         primary_key = self.parameterAsString(parameters, self.INPUT_PRIMARY_KEY, context)
         ignora_indexes = self.parameterAsEnums(parameters, self.INPUT_IGNORA, context)
 
-        pontos_features = sorted(pontos_layer.getFeatures(), key=lambda feat: feat[self.CREATION_TIME_FIELD])
+        pontos_features = sorted(pontos_layer.getFeatures(), key=lambda feat: feat['creation_time'])
         line_geometry = QgsGeometry.fromPolylineXY([QgsPointXY(feat.geometry().asPoint()) for feat in pontos_features])
         (line_sink, line_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_CURVA, context, pontos_layer.fields(), QgsWkbTypes.LineString, pontos_layer.sourceCrs())
         line_feature = QgsFeature()
@@ -89,11 +88,11 @@ class Projeto3Solucao(QgsProcessingAlgorithm):
                     if not buffer_geometry.contains(feat2.geometry()):
                         modified_features_outside_buffer.append(feat2)
 
-        (mod_sink, mod_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_MODIFICADOS, context, dia1_layer.fields(), QgsWkbTypes.Point, dia1_layer.sourceCrs())
+        (mod_sink, mod_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_MODIFICADOS, context, dia1_layer.fields(), dia1_layer.wkbType(), dia1_layer.sourceCrs())
         for feat in modified_features:
             mod_sink.addFeature(feat, QgsFeatureSink.FastInsert)
 
-        (mod_out_sink, mod_out_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_MODIFICADOS_FORA, context, dia1_layer.fields(), QgsWkbTypes.Point, dia1_layer.sourceCrs())
+        (mod_out_sink, mod_out_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_MODIFICADOS_FORA, context, dia1_layer.fields(), dia1_layer.wkbType(), dia1_layer.sourceCrs())
         for feat in modified_features_outside_buffer:
             mod_out_sink.addFeature(feat, QgsFeatureSink.FastInsert)
 

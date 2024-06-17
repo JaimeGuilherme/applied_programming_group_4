@@ -106,7 +106,7 @@ class Projeto2Solucao(QgsProcessingAlgorithm):
 
             # Usar a camada temporária como máscara
             curveRaster = processing.run("gdal:cliprasterbymasklayer", {
-                'INPUT': clippedRaster,
+                'INPUT': raster,
                 'MASK': maskLayer,
                 'OUTPUT': 'TEMPORARY_OUTPUT'
             }, context=context, feedback=feedback)['OUTPUT']

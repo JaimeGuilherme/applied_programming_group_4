@@ -42,10 +42,10 @@ class Projeto1Solucao(QgsProcessingAlgorithm):
         return self.tr('Solução Projeto 1 - Grupo 4')
 
     def group(self):
-        return self.tr('Exemplos')
+        return self.tr(self.groupId())
 
     def groupId(self):
-        return 'exemplos'
+        return 'Projeto 1'
 
     def shortHelpString(self):
         return self.tr("Este algoritmo é parte da solução do Grupo 4 para análise de trafegabilidade.")

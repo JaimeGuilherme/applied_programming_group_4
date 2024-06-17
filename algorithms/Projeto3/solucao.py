@@ -31,10 +31,10 @@ class Projeto3Solucao(QgsProcessingAlgorithm):
         return self.tr('Solução Projeto 3 - Grupo 4')
 
     def group(self):
-        return self.tr('Exemplos')
+        return self.tr(self.groupId())
 
     def groupId(self):
-        return 'exemplos'
+        return 'Projeto 3'
 
     def shortHelpString(self):
         return self.tr("Identifica e extrai geometrias modificadas fora do buffer.")

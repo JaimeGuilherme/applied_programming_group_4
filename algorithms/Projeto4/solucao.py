@@ -26,10 +26,10 @@ class Projeto4Solucao(QgsProcessingAlgorithm):
         return self.tr('Solução Projeto 4 - Grupo 4')
 
     def group(self):
-        return self.tr('Exemplos')
+        return self.tr(self.groupId())
 
     def groupId(self):
-        return 'exemplos'
+        return 'Projeto 4'
 
     def shortHelpString(self):
         return self.tr("Valida os dados conforme regras específicas e identifica erros.")

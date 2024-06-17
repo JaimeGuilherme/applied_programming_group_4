@@ -1,15 +1,12 @@
-from collections import defaultdict
 from qgis.PyQt.QtCore import QCoreApplication, QVariant
 from qgis.core import (
     QgsProcessing, QgsFeatureSink, QgsProcessingAlgorithm, QgsProcessingParameterFeatureSource,
-    QgsProcessingParameterFeatureSink, QgsFeature, QgsGeometry, QgsWkbTypes, 
-    QgsApplication, QgsProcessingProvider, QgsFields, QgsField, QgsProcessingException, QgsFeatureRequest
+    QgsProcessingParameterFeatureSink, QgsFeature, QgsWkbTypes, 
+    QgsApplication, QgsFields, QgsField, QgsProcessingException
 )
-from qgis import processing
 
 class Projeto4SolucaoComplementar(QgsProcessingAlgorithm):
     INPUT_PONTOS = 'INPUT_PONTOS'
-    INPUT_DRENAGEM = 'INPUT_DRENAGEM'
     INPUT_VIA = 'INPUT_VIA'
     INPUT_BARRAGEM = 'INPUT_BARRAGEM'
     INPUT_MASSA_DAGUA = 'INPUT_MASSA_DAGUA'
@@ -39,8 +36,6 @@ class Projeto4SolucaoComplementar(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterFeatureSource(
             self.INPUT_PONTOS, self.tr('Camada de Pontos'), [QgsProcessing.TypeVectorPoint]))
         self.addParameter(QgsProcessingParameterFeatureSource(
-            self.INPUT_DRENAGEM, self.tr('Camada de Trecho de Drenagem'), [QgsProcessing.TypeVectorLine]))
-        self.addParameter(QgsProcessingParameterFeatureSource(
             self.INPUT_VIA, self.tr('Camada de Via de Deslocamento'), [QgsProcessing.TypeVectorLine]))
         self.addParameter(QgsProcessingParameterFeatureSource(
             self.INPUT_BARRAGEM, self.tr('Camada de Barragem'), [QgsProcessing.TypeVectorLine]))
@@ -51,7 +46,6 @@ class Projeto4SolucaoComplementar(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         pontos_layer = self.parameterAsVectorLayer(parameters, self.INPUT_PONTOS, context)
-        drenagem_layer = self.parameterAsVectorLayer(parameters, self.INPUT_DRENAGEM, context)
         via_layer = self.parameterAsVectorLayer(parameters, self.INPUT_VIA, context)
         barragem_layer = self.parameterAsVectorLayer(parameters, self.INPUT_BARRAGEM, context)
         massa_dagua_layer = self.parameterAsVectorLayer(parameters, self.INPUT_MASSA_DAGUA, context)

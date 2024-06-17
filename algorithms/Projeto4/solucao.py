@@ -3,7 +3,7 @@ from qgis.PyQt.QtCore import QCoreApplication, QVariant
 from qgis.core import (
     QgsProcessing, QgsFeatureSink, QgsProcessingAlgorithm, QgsProcessingParameterFeatureSource,
     QgsProcessingParameterFeatureSink, QgsFeature, QgsGeometry, QgsWkbTypes, 
-    QgsApplication, QgsProcessingProvider, QgsFields, QgsField, QgsProcessingException, QgsFeatureRequest
+    QgsApplication, QgsFields, QgsField, QgsProcessingException, QgsFeatureRequest
 )
 from qgis import processing
 
@@ -11,8 +11,6 @@ class Projeto4Solucao(QgsProcessingAlgorithm):
     INPUT_PONTOS = 'INPUT_PONTOS'
     INPUT_DRENAGEM = 'INPUT_DRENAGEM'
     INPUT_VIA = 'INPUT_VIA'
-    INPUT_BARRAGEM = 'INPUT_BARRAGEM'
-    INPUT_MASSA_DAGUA = 'INPUT_MASSA_DAGUA'
     OUTPUT_ERRORS = 'OUTPUT_ERRORS'
 
     def tr(self, string):
@@ -43,10 +41,6 @@ class Projeto4Solucao(QgsProcessingAlgorithm):
             self.INPUT_DRENAGEM, self.tr('Camada de Trecho de Drenagem'), [QgsProcessing.TypeVectorLine]))
         self.addParameter(QgsProcessingParameterFeatureSource(
             self.INPUT_VIA, self.tr('Camada de Via de Deslocamento'), [QgsProcessing.TypeVectorLine]))
-        self.addParameter(QgsProcessingParameterFeatureSource(
-            self.INPUT_BARRAGEM, self.tr('Camada de Barragem'), [QgsProcessing.TypeVectorLine]))
-        self.addParameter(QgsProcessingParameterFeatureSource(
-            self.INPUT_MASSA_DAGUA, self.tr('Camada de Massa d\'Água'), [QgsProcessing.TypeVectorPolygon]))
         self.addParameter(QgsProcessingParameterFeatureSink(
             self.OUTPUT_ERRORS, self.tr('Camada de Erros'), QgsProcessing.TypeVectorPoint))
 
@@ -54,8 +48,6 @@ class Projeto4Solucao(QgsProcessingAlgorithm):
         pontos_layer = self.parameterAsVectorLayer(parameters, self.INPUT_PONTOS, context)
         drenagem_layer = self.parameterAsVectorLayer(parameters, self.INPUT_DRENAGEM, context)
         via_layer = self.parameterAsVectorLayer(parameters, self.INPUT_VIA, context)
-        barragem_layer = self.parameterAsVectorLayer(parameters, self.INPUT_BARRAGEM, context)
-        massa_dagua_layer = self.parameterAsVectorLayer(parameters, self.INPUT_MASSA_DAGUA, context)
         
         fields = QgsFields()
         fields.append(QgsField("erro", QVariant.String))
@@ -111,7 +103,6 @@ class Projeto4Solucao(QgsProcessingAlgorithm):
                 errors.append("Numero de pistas deve ser menor ou igual ao de faixas e ambos maiores que 0.")
             
             if errors:
-                error_point = feature.geometry().centroid().asPoint()
                 add_error(feature.geometry().centroid(), '; '.join(errors))
 
         # Regra 2: Interseção única entre via de deslocamento e trecho de drenagem

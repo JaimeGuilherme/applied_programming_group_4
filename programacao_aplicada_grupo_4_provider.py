@@ -25,7 +25,7 @@
 """
 
 __author__ = 'Grupo 4'
-__date__ = '2024-05-27'
+__date__ = '2024-06-16'
 __copyright__ = '(C) 2024 by Grupo 4'
 
 # This will get replaced with a git SHA1 when you do a git archive
@@ -39,6 +39,8 @@ from .algorithms.Projeto2.solucao import Projeto2Solucao
 #from .algorithms.Projeto2.solucao_complementar import Projeto2SolucaoComplementar (Problema de carregamento do algoritmo)
 from .algorithms.Projeto3.solucao import Projeto3Solucao
 from .algorithms.Projeto3.solucao_complementar import Projeto3SolucaoComplementar
+from .algorithms.Projeto4.solucao import Projeto4Solucao
+from .algorithms.Projeto4.solucao_complementar import Projeto4SolucaoComplementar
 
 
 class ProgramacaoAplicadaGrupo4Provider(QgsProcessingProvider):
@@ -66,6 +68,8 @@ class ProgramacaoAplicadaGrupo4Provider(QgsProcessingProvider):
         #self.addAlgorithm(Projeto2SolucaoComplementar()) (Problema de carregamento do algoritmo)
         self.addAlgorithm(Projeto3Solucao())
         self.addAlgorithm(Projeto3SolucaoComplementar())
+        self.addAlgorithm(Projeto4Solucao())
+        self.addAlgorithm(Projeto4SolucaoComplementar())
         # add additional algorithms here
         # self.addAlgorithm(MyOtherAlgorithm())
 

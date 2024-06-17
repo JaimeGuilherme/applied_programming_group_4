@@ -1,35 +1,30 @@
-from qgis.PyQt.QtCore import QCoreApplication
-from qgis.core import (QgsProcessing, QgsFeatureSink, QgsProcessingException,
-                       QgsProcessingAlgorithm, QgsProcessingParameterFeatureSource,
-                       QgsProcessingParameterFeatureSink, QgsProcessingParameterDistance,
-                       QgsProcessingParameterField, QgsProcessingParameterEnum,
-                       QgsFeature, QgsGeometry, QgsPointXY, QgsWkbTypes, QgsApplication,
-                       QgsField, QgsFields)
-from qgis.PyQt.QtCore import QVariant
+from collections import defaultdict
+from qgis.PyQt.QtCore import QCoreApplication, QVariant
+from qgis.core import (
+    QgsProcessing, QgsFeatureSink, QgsProcessingAlgorithm, QgsProcessingParameterFeatureSource,
+    QgsProcessingParameterFeatureSink, QgsFeature, QgsGeometry, QgsWkbTypes, 
+    QgsApplication, QgsProcessingProvider, QgsFields, QgsField, QgsProcessingException, QgsFeatureRequest
+)
+from qgis import processing
 
-class Projeto3SolucaoComplementar(QgsProcessingAlgorithm):
+class Projeto4SolucaoComplementar(QgsProcessingAlgorithm):
     INPUT_PONTOS = 'INPUT_PONTOS'
-    INPUT_DIA_1 = 'INPUT_DIA_1'
-    INPUT_DIA_2 = 'INPUT_DIA_2'
-    INPUT_TOL = 'INPUT_TOL'
-    INPUT_PRIMARY_KEY = 'INPUT_PRIMARY_KEY'
-    INPUT_IGNORA = 'INPUT_IGNORA'
-    OUTPUT_CURVA = 'OUTPUT_CURVA'
-    OUTPUT_MODIFICADOS = 'OUTPUT_MODIFICADOS'
-    OUTPUT_BUFFER = 'OUTPUT_BUFFER'
-    OUTPUT_MODIFICADOS_FORA = 'OUTPUT_MODIFICADOS_FORA'
+    INPUT_DRENAGEM = 'INPUT_DRENAGEM'
+    INPUT_VIA = 'INPUT_VIA'
+    INPUT_BARRAGEM = 'INPUT_BARRAGEM'
+    INPUT_MASSA_DAGUA = 'INPUT_MASSA_DAGUA'
+    OUTPUT_ERRORS = 'OUTPUT_ERRORS'
 
     def tr(self, string):
-        return QCoreApplication.translate('Projeto3SolucaoComplementar', string)
-
+        return QCoreApplication.translate('Projeto4SolucaoComplementar', string)
     def createInstance(self):
-        return Projeto3SolucaoComplementar()
+        return Projeto4SolucaoComplementar()
 
     def name(self):
-        return 'projeto3solucaocomplementar'
+        return 'Projeto4solucaocomplementar'
 
     def displayName(self):
-        return self.tr('Solução Complementar Projeto 3 - Grupo 4')
+        return self.tr('Solução Complementar Projeto 4 - Grupo 4')
 
     def group(self):
         return self.tr('Exemplos')
@@ -38,113 +33,65 @@ class Projeto3SolucaoComplementar(QgsProcessingAlgorithm):
         return 'exemplos'
 
     def shortHelpString(self):
-        return self.tr("Identifica e extrai geometrias modificadas fora do buffer.")
+        return self.tr("Valida os dados conforme regras específicas e identifica erros.")
 
     def initAlgorithm(self, config=None):
-        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT_PONTOS, self.tr('Camada de Pontos'), [QgsProcessing.TypeVectorPoint]))
-        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT_DIA_1, self.tr('Camada do Dia 1'), [QgsProcessing.TypeVectorPoint, QgsProcessing.TypeVectorLine, QgsProcessing.TypeVectorPolygon]))
-        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT_DIA_2, self.tr('Camada do Dia 2'), [QgsProcessing.TypeVectorPoint, QgsProcessing.TypeVectorLine, QgsProcessing.TypeVectorPolygon]))
-        self.addParameter(QgsProcessingParameterDistance(self.INPUT_TOL, self.tr('Distância de Tolerância'), defaultValue=10))
-        self.addParameter(QgsProcessingParameterField(self.INPUT_PRIMARY_KEY, self.tr('Chave Primária'), None, self.INPUT_DIA_1))
-        self.addParameter(QgsProcessingParameterEnum(self.INPUT_IGNORA, self.tr('Atributos a ignorar'), [], allowMultiple=True, optional=True))
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_CURVA, self.tr('Saída de Rota Percorrida'), QgsProcessing.TypeVectorLine))
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_MODIFICADOS, self.tr('Geometrias Modificadas'), QgsProcessing.TypeVectorAnyGeometry))
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_BUFFER, self.tr('Buffer da Rota'), QgsProcessing.TypeVectorPolygon))
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_MODIFICADOS_FORA, self.tr('Geometrias Modificadas Fora do Buffer'), QgsProcessing.TypeVectorAnyGeometry))
+        self.addParameter(QgsProcessingParameterFeatureSource(
+            self.INPUT_PONTOS, self.tr('Camada de Pontos'), [QgsProcessing.TypeVectorPoint]))
+        self.addParameter(QgsProcessingParameterFeatureSource(
+            self.INPUT_DRENAGEM, self.tr('Camada de Trecho de Drenagem'), [QgsProcessing.TypeVectorLine]))
+        self.addParameter(QgsProcessingParameterFeatureSource(
+            self.INPUT_VIA, self.tr('Camada de Via de Deslocamento'), [QgsProcessing.TypeVectorLine]))
+        self.addParameter(QgsProcessingParameterFeatureSource(
+            self.INPUT_BARRAGEM, self.tr('Camada de Barragem'), [QgsProcessing.TypeVectorLine]))
+        self.addParameter(QgsProcessingParameterFeatureSource(
+            self.INPUT_MASSA_DAGUA, self.tr('Camada de Massa d\'Água'), [QgsProcessing.TypeVectorPolygon]))
+        self.addParameter(QgsProcessingParameterFeatureSink(
+            self.OUTPUT_ERRORS, self.tr('Camada de Erros'), QgsProcessing.TypeVectorPoint))
 
     def processAlgorithm(self, parameters, context, feedback):
         pontos_layer = self.parameterAsVectorLayer(parameters, self.INPUT_PONTOS, context)
-        dia1_layer = self.parameterAsVectorLayer(parameters, self.INPUT_DIA_1, context)
-        dia2_layer = self.parameterAsVectorLayer(parameters, self.INPUT_DIA_2, context)
-        tol = self.parameterAsDouble(parameters, self.INPUT_TOL, context)
-        primary_key = self.parameterAsString(parameters, self.INPUT_PRIMARY_KEY, context)
-        ignora_indexes = self.parameterAsEnums(parameters, self.INPUT_IGNORA, context)
+        drenagem_layer = self.parameterAsVectorLayer(parameters, self.INPUT_DRENAGEM, context)
+        via_layer = self.parameterAsVectorLayer(parameters, self.INPUT_VIA, context)
+        barragem_layer = self.parameterAsVectorLayer(parameters, self.INPUT_BARRAGEM, context)
+        massa_dagua_layer = self.parameterAsVectorLayer(parameters, self.INPUT_MASSA_DAGUA, context)
+        
+        fields = QgsFields()
+        fields.append(QgsField("erro", QVariant.String))
+        
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_ERRORS, context, fields, QgsWkbTypes.Point, pontos_layer.crs())
 
-        pontos_features = sorted(pontos_layer.getFeatures(), key=lambda feat: feat['creation_time'])
-        line_geometry = QgsGeometry.fromPolylineXY([QgsPointXY(feat.geometry().asPoint()) for feat in pontos_features])
-        (line_sink, line_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_CURVA, context, pontos_layer.fields(), QgsWkbTypes.LineString, pontos_layer.sourceCrs())
-        line_feature = QgsFeature()
-        line_feature.setGeometry(line_geometry)
-        line_sink.addFeature(line_feature, QgsFeatureSink.FastInsert)
+        if sink is None:
+            raise QgsProcessingException(self.invalidSinkError(parameters, self.OUTPUT_ERRORS))
 
-        buffer_geometry = line_geometry.buffer(tol, 20)
-        (buffer_sink, buffer_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_BUFFER, context, pontos_layer.fields(), QgsWkbTypes.Polygon, pontos_layer.sourceCrs())
-        buffer_feature = QgsFeature()
-        buffer_feature.setGeometry(buffer_geometry)
-        buffer_sink.addFeature(buffer_feature, QgsFeatureSink.FastInsert)
+        def add_error(geometry, message):
+            feature = QgsFeature()
+            feature.setGeometry(geometry)
+            feature.setAttributes([message])
+            sink.addFeature(feature, QgsFeatureSink.FastInsert)
 
-        dia1_features = {feat[primary_key]: feat for feat in dia1_layer.getFeatures()}
-        dia2_features = {feat[primary_key]: feat for feat in dia2_layer.getFeatures()}
-        modified_features = []
-        modified_features_outside_buffer = []
 
-        new_fields = QgsFields()
-        for field in dia1_layer.fields():
-            new_fields.append(field)
-        new_fields.append(QgsField("Tipo de Mudança", QVariant.String))
-        new_fields.append(QgsField("Atributos Modificados", QVariant.String))
+        # Regra 6: Borda de represa/açude deve coincidir com barragem
+        for massa in massa_dagua_layer.getFeatures():
+            valid = False
+            for barragem in barragem_layer.getFeatures():
+                if massa.geometry().intersects(barragem.geometry()):
+                    valid = True
+                    break
+            if not valid:
+                add_error(massa.geometry().centroid(), "Erro na borda da represa/açude")
 
-        # Criando sink para as features modificadas
-        (mod_sink, mod_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_MODIFICADOS, context, new_fields, dia1_layer.wkbType(), dia1_layer.sourceCrs())
+        # Regra 7: Atributo "sobreposto_transportes" das barragens deve estar correto
+        for barragem in barragem_layer.getFeatures():
+            sobreposto_transportes = "Não"
+            for via in via_layer.getFeatures():
+                if barragem.geometry().intersects(via.geometry()):
+                    sobreposto_transportes = "Sim"
+                    break
+            if barragem["sobreposto_transportes"] != sobreposto_transportes:
+                add_error(barragem.geometry().centroid(), "Erro no atributo sobreposto_transportes")
 
-        # Criando sink para as features modificadas fora do buffer
-        (mod_out_sink, mod_out_dest_id) = self.parameterAsSink(parameters, self.OUTPUT_MODIFICADOS_FORA, context, new_fields, dia1_layer.wkbType(), dia1_layer.sourceCrs())
-
-        ignore_fields = {dia1_layer.fields().fieldName(i) for i in ignora_indexes}
-        ignore_fields.update(['fid', 'id'])
-
-        for key in dia1_features:
-            if key in dia2_features:
-                feat1 = dia1_features[key]
-                feat2 = dia2_features[key]
-                geometry_changed = feat1.geometry().distance(feat2.geometry()) > tol
-                if geometry_changed:
-                    change_type = "Feição Modificada"
-                    changed_attributes = ["geometria"]
-                else:
-                    changed_attributes = [field for field in feat1.fields().names() if feat1[field] != feat2[field] and field not in ignore_fields]
-                    change_type = "Feição Modificada" if changed_attributes else None
-
-                if change_type:
-                    new_feat = QgsFeature(new_fields)
-                    new_feat.setGeometry(feat2.geometry())
-                    new_feat.setAttributes(feat2.attributes() + [change_type, ",".join(changed_attributes)])
-                    modified_features.append(new_feat)
-                    mod_sink.addFeature(new_feat, QgsFeatureSink.FastInsert)
-                    if not buffer_geometry.contains(new_feat.geometry()):
-                        modified_features_outside_buffer.append(new_feat)
-                        mod_out_sink.addFeature(new_feat, QgsFeatureSink.FastInsert)
-
-        for key in dia2_features:
-            if key not in dia1_features:
-                feat2 = dia2_features[key]
-                new_feat = QgsFeature(new_fields)
-                new_feat.setGeometry(feat2.geometry())
-                new_feat.setAttributes(feat2.attributes() + ["Feição Adicionada", primary_key])
-                modified_features.append(new_feat)
-                mod_sink.addFeature(new_feat, QgsFeatureSink.FastInsert)
-                if not buffer_geometry.contains(new_feat.geometry()):
-                    modified_features_outside_buffer.append(new_feat)
-                    mod_out_sink.addFeature(new_feat, QgsFeatureSink.FastInsert)
-
-        for key in dia1_features:
-            if key not in dia2_features:
-                feat1 = dia1_features[key]
-                new_feat = QgsFeature(new_fields)
-                new_feat.setGeometry(feat1.geometry())
-                new_feat.setAttributes(feat1.attributes() + ["Feição Removida", primary_key])
-                modified_features.append(new_feat)
-                mod_sink.addFeature(new_feat, QgsFeatureSink.FastInsert)
-                if not buffer_geometry.contains(new_feat.geometry()):
-                    modified_features_outside_buffer.append(new_feat)
-                    mod_out_sink.addFeature(new_feat, QgsFeatureSink.FastInsert)
-
-        return {
-            self.OUTPUT_CURVA: line_dest_id,
-            self.OUTPUT_MODIFICADOS: mod_dest_id,
-            self.OUTPUT_BUFFER: buffer_dest_id,
-            self.OUTPUT_MODIFICADOS_FORA: mod_out_dest_id
-        }
+        return {self.OUTPUT_ERRORS: dest_id}
 
 def register_algorithms():
-    QgsApplication.processingRegistry().addAlgorithm(Projeto3SolucaoComplementar())
+    QgsApplication.processingRegistry().addAlgorithm(Projeto4SolucaoComplementar())
